@@ -1,0 +1,21 @@
+# data & model artifacts (large / regenerable — never commit)
+# anchored to repo root so src/data/ source is NOT ignored
+/data/
+/models/
+*.pt
+*.pkl
+*.ckpt
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.ipynb_checkpoints/
+*.egg-info/
+
+# os / editor
+.DS_Store
+.idea/
+.vscode/
