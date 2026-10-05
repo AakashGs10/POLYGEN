@@ -16,15 +16,16 @@ import selfies as sf
 
 EMBED = 128
 HIDDEN = 512
-LATENT = 128
+LATENT = 64              # was 128 — smaller latent so z cannot memorise the whole molecule
+PROP_EMBED = 64          # the property condition is projected to real width (was raw 5 dims)
 BATCH = 256
 EPOCHS = 12
 LR = 1e-3
-BETA_MAX = 0.05
+BETA_MAX = 0.2           # was 0.05 — real KL pressure so z stays information-poor
 BETA_WARMUP_EPOCHS = 4
-PROP_DROPOUT = 0.5
-FREE_BITS = 0.08
-TOKEN_DROPOUT = 0.25
+PROP_DROPOUT = 0.3       # was 0.5 — more conditional exposure, still trains the uncond path for guidance
+FREE_BITS = 0.015        # was 0.08 — 0.015*64≈1 nat free, down from ~10 nats
+TOKEN_DROPOUT = 0.4      # was 0.25 — decoder cannot lean on teacher-forced tokens alone
 CKPT = config.ROOT / "models" / "cvae"
 CKPT.mkdir(parents=True, exist_ok=True)
 
@@ -60,7 +61,13 @@ class CVAE(nn.Module):
         self.enc = nn.GRU(EMBED, HIDDEN, batch_first=True, bidirectional=True)
         self.to_mu = nn.Linear(HIDDEN * 2, LATENT)
         self.to_lv = nn.Linear(HIDDEN * 2, LATENT)
-        cond_dim = LATENT + n_props * 2
+        # project [props*mask, mask] -> PROP_EMBED so the condition has decoder width
+        self.prop_proj = nn.Sequential(
+            nn.Linear(n_props * 2, PROP_EMBED), nn.ReLU(),
+            nn.Linear(PROP_EMBED, PROP_EMBED),
+        )
+        cond_dim = LATENT + PROP_EMBED
+        self.cond_dim = cond_dim
         self.init_h = nn.Linear(cond_dim, HIDDEN)
         self.dec = nn.GRU(EMBED + cond_dim, HIDDEN, batch_first=True)
         self.out = nn.Linear(HIDDEN, vocab_size)
@@ -69,6 +76,10 @@ class CVAE(nn.Module):
         h = self.enc(self.embed(x))[1]
         h = torch.cat([h[0], h[1]], dim=-1)
         return self.to_mu(h), self.to_lv(h)
+
+    def build_cond(self, z, props, mask):
+        pcond = self.prop_proj(torch.cat([props * mask, mask], dim=-1))
+        return torch.cat([z, pcond], dim=-1)
 
     def decode(self, x_in, cond):
         h0 = torch.tanh(self.init_h(cond)).unsqueeze(0).contiguous()
@@ -80,7 +91,7 @@ class CVAE(nn.Module):
     def forward(self, x, props, mask, token_dropout=0.0):
         mu, lv = self.encode(x)
         z = mu + torch.randn_like(mu) * torch.exp(0.5 * lv)
-        cond = torch.cat([z, props * mask, mask], dim=-1)
+        cond = self.build_cond(z, props, mask)
         x_in = x[:, :-1]
         if token_dropout > 0:
             drop = torch.rand(x_in.shape, device=x_in.device) < token_dropout
