@@ -103,8 +103,9 @@ def run(n=300, guidance=GUIDANCE):
         detail.append((q, cper, bper))
 
     # ---- render ----
+    n_train = sum(1 for _ in open(config.DATA_PROCESSED / "cvae_train_slim.csv")) - 1
     lines = ["# Closed-loop benchmark", "",
-             f"Model: 60k-subset / 4-epoch C-VAE. N={n} per arm, guidance={guidance}.",
+             f"Model: C-VAE trained on {n_train:,} rows. N={n} per arm, guidance={guidance}.",
              "Yield = fraction of *valid* generations satisfying every constraint.",
              "`uncond` masks the property channel off (no steering); `cond` is the",
              "guided conditional generation. Lift = cond − uncond.", "",
