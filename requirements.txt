@@ -7,3 +7,6 @@ scikit-learn>=1.3.0
 
 # Phases 2-3 (VAE / C-VAE) — add when you reach the generative tier
 # torch>=2.2.0
+
+# UI (optional) — for the Streamlit demo: streamlit run app.py
+# streamlit>=1.30

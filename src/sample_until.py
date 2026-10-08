@@ -32,21 +32,29 @@ BATCH = 256
 MAX_SAMPLES = 8000
 
 
-def run(query, k=20, guidance=GUIDANCE, batch=BATCH, max_samples=MAX_SAMPLES):
-    parsed = ConstraintParser().parse(query)
-    print(f'query      : "{query}"')
-    if not parsed["active"]:
-        print("no parseable constraints; nothing to sample toward.")
-        return
-    for p, c in parsed["constraints"].items():
-        print(f"    {p:8s} {c['op']:>2s} {c['value']}  [{c['qualifier']}]")
+def collect(query, k=20, guidance=GUIDANCE, batch=BATCH, max_samples=MAX_SAMPLES,
+            bundle=None, progress=None):
+    """Rejection-sample toward the query; return a result dict (no printing).
 
-    dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model, vocab, mean, std = gen.load()
-    model = model.to(dev)
-    oracles = {p: pickle.load(open(config.ORACLE_DIR / f"{p}.pkl", "rb"))
-               for p in parsed["active"] if (config.ORACLE_DIR / f"{p}.pkl").exists()}
-    train_smiles = set(pd.read_csv(config.SELFIES_ALL, usecols=["smiles"])["smiles"])
+    `bundle` = (model, vocab, mean, std, oracles, train_smiles, dev) lets a
+    long-lived app reuse a loaded model. `progress(frac)` is an optional callback.
+    """
+    parser = ConstraintParser()
+    parsed = parser.parse(query)
+    result = {"query": query, "parsed": parsed, "accepted": [],
+              "sampled": 0, "valid": 0, "yield": 0.0, "blocked": not parsed["active"]}
+    if result["blocked"]:
+        return result
+
+    if bundle is None:
+        dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model, vocab, mean, std = gen.load()
+        model = model.to(dev)
+        oracles = {p: pickle.load(open(config.ORACLE_DIR / f"{p}.pkl", "rb"))
+                   for p in parsed["active"] if (config.ORACLE_DIR / f"{p}.pkl").exists()}
+        train_smiles = set(pd.read_csv(config.SELFIES_ALL, usecols=["smiles"])["smiles"])
+    else:
+        model, vocab, mean, std, oracles, train_smiles, dev = bundle
 
     accepted, seen = [], set()
     total, valid = 0, 0
@@ -64,6 +72,8 @@ def run(query, k=20, guidance=GUIDANCE, batch=BATCH, max_samples=MAX_SAMPLES):
             if sm and sm.count("*") == 2:
                 smiles.append(sm)
         valid += len(smiles)
+        if progress:
+            progress(min(1.0, max(len(accepted) / k, total / max_samples)))
         if not smiles:
             continue
 
@@ -87,20 +97,31 @@ def run(query, k=20, guidance=GUIDANCE, batch=BATCH, max_samples=MAX_SAMPLES):
                 if len(accepted) >= k:
                     break
 
-    yield_rate = len(accepted) / total if total else 0.0
-    print(f"\nsampled {total} | valid {valid} ({valid/total:.0%}) | "
-          f"accepted {len(accepted)} | yield {yield_rate:.2%}")
-    if not accepted:
-        print("no candidate satisfied every constraint within the sampling budget.")
+    result.update({"accepted": accepted, "sampled": total, "valid": valid,
+                   "yield": len(accepted) / total if total else 0.0})
+    return result
+
+
+def run(query, k=20, guidance=GUIDANCE, batch=BATCH, max_samples=MAX_SAMPLES):
+    r = collect(query, k, guidance, batch, max_samples)
+    print(f'query      : "{query}"')
+    if r["blocked"]:
+        print("no parseable polymer-property constraints; nothing to sample toward.")
+        return
+    for p, c in r["parsed"]["constraints"].items():
+        print(f"    {p:8s} {c['op']:>2s} {c['value']}  [{c['qualifier']}]")
+    print(f"\nsampled {r['sampled']} | valid {r['valid']} "
+          f"({r['valid']/r['sampled']:.0%}) | accepted {len(r['accepted'])} | "
+          f"yield {r['yield']:.2%}")
+    if not r["accepted"]:
+        print("no candidate satisfied every constraint within the budget.")
         print("try raising guidance, raising the budget, or relaxing the request.")
         return
-
-    df = pd.DataFrame(accepted)
+    df = pd.DataFrame(r["accepted"])
     out = Path(config.ROOT) / "results" / "accepted_latest.csv"
     out.parent.mkdir(exist_ok=True)
     df.to_csv(out, index=False)
-    n_novel = int(df["novel"].sum())
-    print(f"novel: {n_novel}/{len(df)}   ->  wrote {out}\n")
+    print(f"novel: {int(df['novel'].sum())}/{len(df)}  ->  wrote {out}\n")
     print(df.head(min(k, 15)).to_string(index=False))
 
 
