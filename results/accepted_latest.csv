@@ -1,0 +1,16 @@
+smiles,novel,Tg_pred,Density_pred
+C=CC=CC=C1C(c2ccc(*)cc2CC)=CC=CC(C)C1C(C)=C(*)C=CC(C)(C)CC,True,161.1778,0.9235
+CC=C1C(c2ccc(*)cc2)=CC(C)=C1*,True,165.8621,0.8635
+CCC(C)(C)C=C1C(*)=CCC2=CC(c3ccccc3)C1C=CC(=C1C=CC(=CC=C*)C1(C)C)C2,True,178.3465,0.8888
+CCc1ccccc1-c1ccccc1C1=CC=C(C)C1=CC1=CC=C(*)C=C*C1,True,165.2581,0.9114
+CCCCC1C=CC(C)=C(NC(=O)*)C(C)=CC(C)(C)CC=C1*,True,163.1487,0.8799
+CCC(C)c1cc(N*)c(C)cc1CC1=CC=C2C3C=C1c1ccc(C)cc1C3=CC=CN2CCC(C)*,True,200.5131,0.8821
+CC=CC1C=CC=C2C(=Cc3ccc(*)c(c3)C=C(C)CC(*)=CC=CC=CCC2(C)C)C=CC(C)(C)C1,True,184.4636,0.8214
+Cc1cc(-c2ccc(*)cc2)ccc1C1=CC=C(*)C1,True,204.0603,0.9085
+Cc1cc(*)ccc1C1=CC=C(C2=CC=C*2)C1c1ccccc1,True,185.0881,0.9068
+CC1(C)C*C=CCCCCc2ccc(*)cc21,True,168.3635,0.8274
+CC=CC(CC)=C(*)C=CC=CC=C1c2ccc(*)cc2Cc2ccccc2C1C(C)c1ccccc1,True,168.4217,0.8983
+Cc1cc(*)ccc1C1=CC=C(C2=CC=C*2)C1,True,214.1362,0.8799
+CCC1CC(*)=CC2=C1C=CC=C(c1ccccc1)C=C2c1ccc(*)cc1,True,170.1684,0.9021
+CCC(C)(C)C=CC1=CC=C(*)C=C(c2ccc(Br)cc2-c2ccccc2)*1,True,160.8144,0.8844
+CCC1=C(C)C(*)C(=O)NCCC2C=C1C(C)(C)C(CC)C(*)=CC2,True,161.9181,0.8996
