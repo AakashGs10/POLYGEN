@@ -13,41 +13,41 @@ recorded, and a demo UI with safe handling of off-topic input.
 
 ```mermaid
 flowchart TD
-    Q["User request<br/>'high Tg, low density'"]:::io --> P
+    Q["User request<br/>high Tg, low density"]:::io --> P
 
-    subgraph T1["Tier 1 · RAG Parser"]
+    subgraph T1["Tier 1 - RAG Parser"]
         direction TB
-        P["TF-IDF retrieval<br/>+ keyword / comparator rules"]:::parse --> C["Constraint block<br/>Tg ≥ 160 · Density ≤ 0.93"]:::parse
+        P["TF-IDF retrieval<br/>plus keyword and comparator rules"]:::parse --> C["Constraint block<br/>Tg at least 160, Density at most 0.93"]:::parse
     end
 
-    C --> G{"Property<br/>recognised?"}:::gate
+    C --> G{"Property recognised?"}:::gate
     G -- no --> STOP["No generation<br/>off-topic input blocked"]:::stop
 
-    subgraph T2["Tier 2 · Conditional VAE"]
+    subgraph T2["Tier 2 - Conditional VAE"]
         direction TB
-        V["GRU sequence VAE<br/>+ classifier-free guidance"]:::gen --> CAND["Candidate polymers<br/>SELFIES to SMILES"]:::gen
+        V["GRU sequence VAE<br/>plus classifier-free guidance"]:::gen --> CAND["Candidate polymers<br/>SELFIES to SMILES"]:::gen
     end
     G -- yes --> V
 
-    subgraph T3["Tier 3 · Oracle"]
+    subgraph T3["Tier 3 - Oracle"]
         direction TB
-        O["Morgan + descriptors<br/>→ gradient-boosted regressors"]:::score --> S["Predicted Tg / FFV / Tc<br/>Density / Rg"]:::score
+        O["Morgan plus descriptors<br/>to gradient-boosted regressors"]:::score --> S["Predicted Tg, FFV, Tc,<br/>Density, Rg"]:::score
     end
     CAND --> O
 
     S --> D{"Decision Router<br/>meets all constraints?"}:::decision
-    D -- "reject · resample" --> V
-    D -- accept --> OUT["Accepted polymers<br/>+ properties → CSV"]:::io
+    D -- resample --> V
+    D -- accept --> OUT["Accepted polymers<br/>plus properties to CSV"]:::io
 
-    subgraph TR["Training · offline, built backwards from data"]
+    subgraph TR["Training - offline, built backwards from data"]
         direction TB
-        PI["PI1M · ~1M SMILES"]:::data --> SEL["SELFIES + vocab<br/>two-endpoint enforced"]:::data
+        PI["PI1M - about 1M SMILES"]:::data --> SEL["SELFIES plus vocab<br/>two-endpoint enforced"]:::data
         OPC["Open Polymer Challenge<br/>labeled properties"]:::data --> ORA["Train Oracle<br/>scaffold split"]:::score
         ORA --> PL["Pseudo-label PI1M<br/>cvae_train_slim"]:::data
     end
-    SEL -. training corpus .-> V
-    PL -. property targets .-> V
-    ORA -. oracle.pkl .-> O
+    SEL -.->|training corpus| V
+    PL -.->|property targets| V
+    ORA -.->|oracle model| O
 
     classDef io fill:#b45309,stroke:#f59e0b,color:#ffffff
     classDef parse fill:#4338ca,stroke:#818cf8,color:#ffffff
