@@ -1,0 +1,145 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 720" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arw" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#334155"/>
+    </marker>
+    <marker id="arwl" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#9333ea"/>
+    </marker>
+  </defs>
+
+  <!-- canvas -->
+  <rect x="0" y="0" width="1080" height="720" fill="#ffffff"/>
+  <rect x="0.5" y="0.5" width="1079" height="719" fill="none" stroke="#d0d7de"/>
+  <text x="32" y="46" font-size="26" font-weight="700" fill="#111827">PolyGen-RAG — architecture</text>
+  <text x="32" y="72" font-size="14" fill="#6b7280">Plain-English request → property constraints → generated polymer repeat units that meet them</text>
+
+  <!-- ============ INFERENCE BAND ============ -->
+  <rect x="24" y="92" width="1032" height="250" rx="10" fill="#f6f8fa" stroke="#e5e7eb"/>
+  <text x="44" y="118" font-size="14" font-weight="700" letter-spacing="1" fill="#475569">INFERENCE  ·  text → polymers</text>
+
+  <!-- row 1 -->
+  <g>
+    <rect x="44" y="134" width="150" height="60" rx="8" fill="#b45309"/>
+    <text x="119" y="160" font-size="14" font-weight="700" fill="#fff" text-anchor="middle">User request</text>
+    <text x="119" y="179" font-size="11" fill="#fde9d2" text-anchor="middle">"high Tg, low density"</text>
+
+    <line x1="194" y1="164" x2="252" y2="164" stroke="#334155" stroke-width="2" marker-end="url(#arw)"/>
+
+    <rect x="254" y="134" width="196" height="60" rx="8" fill="#1d4ed8"/>
+    <text x="352" y="158" font-size="14" font-weight="700" fill="#fff" text-anchor="middle">Tier 1 · RAG parser</text>
+    <text x="352" y="177" font-size="11" fill="#dbe4ff" text-anchor="middle">TF-IDF retrieval + keyword rules</text>
+
+    <line x1="450" y1="164" x2="508" y2="164" stroke="#334155" stroke-width="2" marker-end="url(#arw)"/>
+
+    <rect x="510" y="134" width="220" height="60" rx="8" fill="#ffffff" stroke="#1d4ed8"/>
+    <text x="620" y="158" font-size="13" font-weight="700" fill="#1e3a8a" text-anchor="middle">Constraint block</text>
+    <text x="620" y="177" font-size="11" fill="#374151" text-anchor="middle">{ Tg ≥ 160, Density ≤ 0.93 }</text>
+
+    <!-- gate note -->
+    <rect x="760" y="134" width="272" height="60" rx="8" fill="#fef2f2" stroke="#ef4444"/>
+    <text x="896" y="157" font-size="12" font-weight="700" fill="#b91c1c" text-anchor="middle">Gate: no property recognised?</text>
+    <text x="896" y="176" font-size="11" fill="#7f1d1d" text-anchor="middle">→ generate nothing (no hallucination)</text>
+  </g>
+
+  <!-- elbow constraints -> C-VAE -->
+  <path d="M620,194 L620,214 L150,214 L150,242" fill="none" stroke="#334155" stroke-width="2" marker-end="url(#arw)"/>
+
+  <!-- row 2 -->
+  <g>
+    <rect x="44" y="244" width="210" height="62" rx="8" fill="#7c3aed"/>
+    <text x="149" y="269" font-size="14" font-weight="700" fill="#fff" text-anchor="middle">Tier 2 · Conditional VAE</text>
+    <text x="149" y="288" font-size="11" fill="#e9d8fd" text-anchor="middle">GRU seq-VAE + guidance</text>
+
+    <line x1="254" y1="275" x2="300" y2="275" stroke="#334155" stroke-width="2" marker-end="url(#arw)"/>
+
+    <rect x="302" y="244" width="150" height="62" rx="8" fill="#ffffff" stroke="#7c3aed"/>
+    <text x="377" y="269" font-size="13" font-weight="700" fill="#5b21b6" text-anchor="middle">Candidates</text>
+    <text x="377" y="288" font-size="11" fill="#374151" text-anchor="middle">SELFIES → SMILES</text>
+
+    <line x1="452" y1="275" x2="498" y2="275" stroke="#334155" stroke-width="2" marker-end="url(#arw)"/>
+
+    <rect x="500" y="244" width="178" height="62" rx="8" fill="#047857"/>
+    <text x="589" y="269" font-size="14" font-weight="700" fill="#fff" text-anchor="middle">Tier 3 · Oracle</text>
+    <text x="589" y="288" font-size="11" fill="#d1fae5" text-anchor="middle">Morgan + desc → GBM</text>
+
+    <line x1="678" y1="275" x2="724" y2="275" stroke="#334155" stroke-width="2" marker-end="url(#arw)"/>
+
+    <rect x="726" y="244" width="150" height="62" rx="8" fill="#ffffff" stroke="#047857"/>
+    <text x="801" y="269" font-size="13" font-weight="700" fill="#065f46" text-anchor="middle">Accept / reject</text>
+    <text x="801" y="288" font-size="11" fill="#374151" text-anchor="middle">meets constraints?</text>
+
+    <line x1="876" y1="275" x2="922" y2="275" stroke="#334155" stroke-width="2" marker-end="url(#arw)"/>
+
+    <rect x="924" y="244" width="108" height="62" rx="8" fill="#b45309"/>
+    <text x="978" y="268" font-size="12.5" font-weight="700" fill="#fff" text-anchor="middle">Accepted</text>
+    <text x="978" y="287" font-size="11" fill="#fde9d2" text-anchor="middle">polymers + CSV</text>
+  </g>
+
+  <!-- rejection loop: accept/reject back to C-VAE -->
+  <path d="M801,306 L801,326 L149,326 L149,308" fill="none" stroke="#9333ea" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arwl)"/>
+  <text x="470" y="322" font-size="11" font-weight="600" fill="#7c3aed" text-anchor="middle">rejection sampling — resample until N accepted</text>
+
+  <!-- ============ TRAINING BAND ============ -->
+  <rect x="24" y="372" width="1032" height="316" rx="10" fill="#f8fafc" stroke="#e5e7eb"/>
+  <text x="44" y="398" font-size="14" font-weight="700" letter-spacing="1" fill="#475569">TRAINING  ·  built backwards from the data (offline)</text>
+
+  <!-- C-VAE chain -->
+  <g>
+    <rect x="44" y="418" width="190" height="60" rx="8" fill="#475569"/>
+    <text x="139" y="443" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">PI1M · ~1M SMILES</text>
+    <text x="139" y="462" font-size="11" fill="#cbd5e1" text-anchor="middle">unlabeled polymers</text>
+
+    <line x1="234" y1="448" x2="290" y2="448" stroke="#334155" stroke-width="2" marker-end="url(#arw)"/>
+
+    <rect x="292" y="418" width="200" height="60" rx="8" fill="#475569"/>
+    <text x="392" y="443" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">SELFIES + vocab</text>
+    <text x="392" y="462" font-size="11" fill="#cbd5e1" text-anchor="middle">two-endpoint enforced ([At])</text>
+  </g>
+
+  <!-- Oracle chain -->
+  <g>
+    <rect x="44" y="528" width="210" height="60" rx="8" fill="#475569"/>
+    <text x="149" y="553" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">Open Polymer Challenge</text>
+    <text x="149" y="572" font-size="11" fill="#cbd5e1" text-anchor="middle">labeled Tg/FFV/Tc/Density/Rg</text>
+
+    <line x1="254" y1="558" x2="300" y2="558" stroke="#334155" stroke-width="2" marker-end="url(#arw)"/>
+
+    <rect x="302" y="528" width="180" height="60" rx="8" fill="#047857"/>
+    <text x="392" y="553" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">Train Oracle</text>
+    <text x="392" y="572" font-size="11" fill="#d1fae5" text-anchor="middle">GBM · scaffold split</text>
+
+    <line x1="482" y1="558" x2="528" y2="558" stroke="#334155" stroke-width="2" marker-end="url(#arw)"/>
+
+    <rect x="530" y="528" width="200" height="60" rx="8" fill="#334155"/>
+    <text x="630" y="553" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">Pseudo-label PI1M</text>
+    <text x="630" y="572" font-size="11" fill="#cbd5e1" text-anchor="middle">→ cvae_train_slim.csv</text>
+  </g>
+
+  <!-- training outputs feeding the models -->
+  <rect x="560" y="418" width="250" height="60" rx="8" fill="#7c3aed"/>
+  <text x="685" y="443" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">Train Conditional VAE</text>
+  <text x="685" y="462" font-size="11" fill="#e9d8fd" text-anchor="middle">669k rows · 12 epochs · val acc 0.85</text>
+
+  <!-- arrows into C-VAE training: corpus (from SELFIES) and targets (from pseudo-label) -->
+  <path d="M492,448 L560,448" fill="none" stroke="#334155" stroke-width="2" marker-end="url(#arw)"/>
+  <text x="526" y="438" font-size="10.5" fill="#475569" text-anchor="middle">corpus</text>
+  <path d="M630,528 L630,500 L648,500 L648,480" fill="none" stroke="#334155" stroke-width="2" marker-end="url(#arw)"/>
+  <text x="690" y="512" font-size="10.5" fill="#475569" text-anchor="middle">property targets</text>
+
+  <!-- "used at inference" up-links -->
+  <path d="M810,448 L860,448 L860,214 L256,214" fill="none" stroke="#9ca3af" stroke-width="1.6" stroke-dasharray="4 4"/>
+  <text x="900" y="444" font-size="10.5" fill="#6b7280">cvae.pt → Tier 2 ↑</text>
+  <path d="M392,528 L392,506 L980,506 L980,276 L878,276" fill="none" stroke="#9ca3af" stroke-width="1.6" stroke-dasharray="4 4"/>
+  <text x="986" y="520" font-size="10.5" fill="#6b7280" text-anchor="end">oracle.pkl → Tier 3 ↑</text>
+
+  <!-- legend -->
+  <g font-size="11" fill="#374151">
+    <rect x="44" y="636" width="14" height="14" rx="3" fill="#1d4ed8"/><text x="64" y="647">Tier 1 (parse)</text>
+    <rect x="168" y="636" width="14" height="14" rx="3" fill="#7c3aed"/><text x="188" y="647">Tier 2 (generate)</text>
+    <rect x="312" y="636" width="14" height="14" rx="3" fill="#047857"/><text x="332" y="647">Tier 3 (score)</text>
+    <rect x="430" y="636" width="14" height="14" rx="3" fill="#475569"/><text x="450" y="647">data / prep</text>
+    <rect x="536" y="636" width="14" height="14" rx="3" fill="#b45309"/><text x="556" y="647">input / output</text>
+    <rect x="662" y="636" width="14" height="14" rx="3" fill="#fef2f2" stroke="#ef4444"/><text x="682" y="647">anti-hallucination gate</text>
+  </g>
+</svg>

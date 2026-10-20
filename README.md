@@ -9,19 +9,48 @@ until candidates meet the request.
 **Status: complete.** All tiers built, the full-data C-VAE trained, results
 recorded, and a demo UI with safe handling of off-topic input.
 
-## Architecture (runtime order)
+## Architecture
 
-```
-text query ──▶ Tier 1: RAG parser ──▶ {Tg: ≥160, Density: ≤0.93, ...}
-                                           │
-                                           ▼
-                        Tier 2: Conditional VAE  ──▶ candidate SELFIES
-                                           │
-                                           ▼
-                        Tier 3: Oracle (property predictor)
-                                           │
-                              accept / reject  (rejection sampling)
-```
+![PolyGen-RAG architecture](docs/architecture.svg)
+
+At **inference**, a request flows left-to-right through the three tiers; the
+Oracle's accept/reject decision feeds a rejection-sampling loop back into the
+C-VAE. The **training** band (built backwards from the data) shows how the two
+learned models are produced offline and then loaded at inference.
+
+## How each tier works
+
+### Tier 1 — RAG parser (`src/rag/`)
+Turns free text into a strict constraint block over the five properties
+(Tg, FFV, Tc, Density, Rg).
+- **Keyword + comparator rules** catch explicit asks (`"Tg above 200"` → `Tg > 200`).
+- **Char-ngram TF-IDF retrieval** over a small exemplar corpus resolves
+  paraphrases with no property keyword (`"rubbery flexible"` → low Tg), with two
+  similarity thresholds: a high bar to *accept a property*, a lower bar to only
+  *borrow a direction*.
+- Qualitative words are **grounded in the data's quantiles** — `"high"` → the
+  property's p90, `"low"` → p10 (`src/rag/property_ranges.json`).
+- Output `targets`/`mask` plug directly into the C-VAE's conditioning vector.
+
+### Tier 2 — Conditional VAE (`src/cvae/`)
+A bidirectional-GRU encoder / GRU decoder sequence VAE over SELFIES, conditioned
+on a masked property vector so any subset of properties can be specified.
+- **Classifier-free guidance** at sampling amplifies the conditioning signal
+  (trained with property dropout so the unconditional path exists).
+- Decodes to SELFIES → SMILES, keeping only **two-endpoint** repeat units.
+
+### Tier 3 — Oracle (`src/oracle/`)
+Per-property gradient-boosted regressors on 2048-bit Morgan fingerprints + 14
+RDKit descriptors, trained with a **Murcko scaffold split** so near-identical
+backbones can't leak across train/test. Held-out test accuracy:
+
+| property | test MAE | R² |
+|----------|----------|-----|
+| Tg | 51.2 °C | 0.37 |
+| FFV | 0.015 | 0.42 |
+| Tc | 0.027 | 0.65 |
+| Density | 0.051 | 0.51 |
+| Rg | 1.30 | 0.68 |
 
 ## Components
 
