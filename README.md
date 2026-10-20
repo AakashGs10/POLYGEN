@@ -107,7 +107,7 @@ next one consumes, so there is always something to test against.
 |-------|------------|------|--------|
 | 0. Data foundation | PI1M ingest, SMILES→SELFIES (two-endpoint enforced), vocab, splits | `src/data/` | ✅ |
 | 1. Oracle (Tier 3) | Open Polymer Challenge labels → Morgan + RDKit descriptors → gradient-boosted regressors, **scaffold-split** | `src/oracle/` | ✅ trained |
-| 1b. Pseudo-labelling | Oracle labels PI1M → `cvae_train_slim.csv` (the C-VAE's structure+property set) | `analyze_pseudolabels.py` | ✅ |
+| 1b. Pseudo-labelling | Oracle labels PI1M → `pi1m_pseudolabelled.csv` + `cvae_train_slim.csv` (the C-VAE's structure+property set); `analyze_pseudolabels.py` audits in-domain coverage | `src/oracle/pseudolabel.py` | ✅ |
 | 2. Conditional VAE (Tier 2) | bi-GRU encoder / GRU decoder, conditioned on a masked property vector; trained on the pseudo-labelled set | `src/cvae/` | ✅ full 669k / 12-epoch model |
 | 1'. RAG parser (Tier 1) | char-ngram TF-IDF retrieval + keyword/comparator rules → strict constraint block, grounded in the data's quantiles | `src/rag/` | ✅ |
 | —. Closed loop | text → parse → C-VAE → Oracle → constraint-satisfaction check | `src/pipeline.py` | ✅ |
@@ -179,6 +179,10 @@ python src/data/vocab.py
 python src/data/properties.py
 python src/oracle/train_baseline.py
 
+# Stage 1b — pseudo-label PI1M with the Oracle -> cvae_train_slim.csv
+python src/oracle/pseudolabel.py
+python analyze_pseudolabels.py           # optional: in-domain coverage report
+
 # Tier 1 — natural language -> constraint block (no torch needed)
 python src/rag/parser.py "high Tg, low density"
 
@@ -210,7 +214,7 @@ streamlit run app.py
 config.py                   paths, hyperparameters, property list
 app.py                      Streamlit demo UI (gated on the parser)
 src/data/                   download, preprocess (SMILES→SELFIES), vocab, chem, properties
-src/oracle/                 features (Morgan + descriptors, scaffold split), train_baseline
+src/oracle/                 features (Morgan + descriptors, scaffold split), train_baseline, pseudolabel
 src/cvae/                   train (conditional VAE), generate (guided sampling)
 src/rag/                    knowledge (lexicon + exemplars), parser, property_ranges.json
 src/pipeline.py             text → generate → Oracle check (one query)
