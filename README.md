@@ -11,12 +11,58 @@ recorded, and a demo UI with safe handling of off-topic input.
 
 ## Architecture
 
-![PolyGen-RAG architecture](docs/architecture.svg)
+```mermaid
+flowchart TD
+    Q["User request<br/>'high Tg, low density'"]:::io --> P
 
-At **inference**, a request flows left-to-right through the three tiers; the
-Oracle's accept/reject decision feeds a rejection-sampling loop back into the
-C-VAE. The **training** band (built backwards from the data) shows how the two
-learned models are produced offline and then loaded at inference.
+    subgraph T1["Tier 1 · RAG Parser"]
+        direction TB
+        P["TF-IDF retrieval<br/>+ keyword / comparator rules"]:::parse --> C["Constraint block<br/>Tg ≥ 160 · Density ≤ 0.93"]:::parse
+    end
+
+    C --> G{"Property<br/>recognised?"}:::gate
+    G -- no --> STOP["No generation<br/>off-topic input blocked"]:::stop
+
+    subgraph T2["Tier 2 · Conditional VAE"]
+        direction TB
+        V["GRU sequence VAE<br/>+ classifier-free guidance"]:::gen --> CAND["Candidate polymers<br/>SELFIES to SMILES"]:::gen
+    end
+    G -- yes --> V
+
+    subgraph T3["Tier 3 · Oracle"]
+        direction TB
+        O["Morgan + descriptors<br/>→ gradient-boosted regressors"]:::score --> S["Predicted Tg / FFV / Tc<br/>Density / Rg"]:::score
+    end
+    CAND --> O
+
+    S --> D{"Decision Router<br/>meets all constraints?"}:::decision
+    D -- "reject · resample" --> V
+    D -- accept --> OUT["Accepted polymers<br/>+ properties → CSV"]:::io
+
+    subgraph TR["Training · offline, built backwards from data"]
+        direction TB
+        PI["PI1M · ~1M SMILES"]:::data --> SEL["SELFIES + vocab<br/>two-endpoint enforced"]:::data
+        OPC["Open Polymer Challenge<br/>labeled properties"]:::data --> ORA["Train Oracle<br/>scaffold split"]:::score
+        ORA --> PL["Pseudo-label PI1M<br/>cvae_train_slim"]:::data
+    end
+    SEL -. training corpus .-> V
+    PL -. property targets .-> V
+    ORA -. oracle.pkl .-> O
+
+    classDef io fill:#b45309,stroke:#f59e0b,color:#ffffff
+    classDef parse fill:#4338ca,stroke:#818cf8,color:#ffffff
+    classDef gen fill:#6d28d9,stroke:#a78bfa,color:#ffffff
+    classDef score fill:#047857,stroke:#34d399,color:#ffffff
+    classDef data fill:#374151,stroke:#9ca3af,color:#ffffff
+    classDef gate fill:#7f1d1d,stroke:#ef4444,color:#ffffff
+    classDef stop fill:#7f1d1d,stroke:#ef4444,color:#ffffff
+    classDef decision fill:#1f2937,stroke:#f59e0b,color:#fbbf24
+```
+
+At **inference** a request flows top-down through the three tiers; the Decision
+Router's accept/reject feeds a rejection-sampling loop back into the C-VAE. The
+**training** subgraph (built backwards from the data) shows how the two learned
+models are produced offline, then loaded at inference (dotted links).
 
 ## How each tier works
 
