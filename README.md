@@ -75,10 +75,11 @@ Retrieval-Augmented Generation:
 - **Retrieve** the most relevant real polymer-science papers for the request from
   a bundled corpus (`papers.jsonl`), using sentence-transformer embeddings
   (semantic), with a TF-IDF fallback.
-- **Generate** with **Claude** (official Anthropic SDK, `claude-opus-5-5`): the
-  model reads the retrieved abstracts and returns the constraint block **plus a
-  short explanation that cites the papers** (e.g. *"rigid aromatic backbones raise
-  Tg [0][2]"*). Needs `ANTHROPIC_API_KEY`.
+- **Generate** with an **LLM** — **Google Gemini (free tier)** or **Anthropic
+  Claude**, auto-selected from whichever API key is set. The model reads the
+  retrieved abstracts and returns the constraint block **plus a short explanation
+  that cites the papers** (e.g. *"rigid aromatic backbones raise Tg [0][2]"*).
+  Set `GEMINI_API_KEY` (free) or `ANTHROPIC_API_KEY` in `.env`.
 - `build_corpus.py` expands the corpus from OpenAlex (free, no key).
 
 **(b) Local parser** (`parser.py`) — offline fallback and the **anti-hallucination
@@ -200,9 +201,9 @@ python analyze_pseudolabels.py           # optional: in-domain coverage report
 # Tier 1 (local, offline) — natural language -> constraint block (no torch/key)
 python src/rag/parser.py "high Tg, low density"
 
-# Tier 1 (paper-grounded RAG) — retrieve papers + Claude -> constraints + citations
+# Tier 1 (paper-grounded RAG) — retrieve papers + LLM -> constraints + citations
 pip install -r requirements-rag.txt
-cp .env.example .env            # then put your ANTHROPIC_API_KEY in .env
+cp .env.example .env            # then set GEMINI_API_KEY (free) or ANTHROPIC_API_KEY
 python build_corpus.py          # optional: grow the paper corpus from OpenAlex
 python src/rag/rag.py "a heat-resistant but lightweight polymer"
 

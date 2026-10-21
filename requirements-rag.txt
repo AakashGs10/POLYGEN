@@ -1,4 +1,7 @@
-# Tier 1 RAG (paper retrieval + Claude) — optional, on top of requirements.txt
-anthropic>=0.40            # Claude API (the generation half of RAG)
+# Tier 1 RAG (paper retrieval + an LLM) — optional, on top of requirements.txt
+# Install ONE LLM SDK for your provider (or both):
+google-genai>=1.0          # Google Gemini (free tier)  — set GEMINI_API_KEY
+anthropic>=0.40            # Anthropic Claude            — set ANTHROPIC_API_KEY
+
 sentence-transformers>=2.2 # semantic paper retrieval (falls back to TF-IDF if absent)
-python-dotenv>=1.0         # loads ANTHROPIC_API_KEY from a local .env
+python-dotenv>=1.0         # loads the API key from a local .env
