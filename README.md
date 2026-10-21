@@ -68,15 +68,29 @@ models are produced offline, then loaded at inference (dotted links).
 
 ### Tier 1 — RAG parser (`src/rag/`)
 Turns free text into a strict constraint block over the five properties
-(Tg, FFV, Tc, Density, Rg).
-- **Keyword + comparator rules** catch explicit asks (`"Tg above 200"` → `Tg > 200`).
-- **Char-ngram TF-IDF retrieval** over a small exemplar corpus resolves
-  paraphrases with no property keyword (`"rubbery flexible"` → low Tg), with two
-  similarity thresholds: a high bar to *accept a property*, a lower bar to only
-  *borrow a direction*.
-- Qualitative words are **grounded in the data's quantiles** — `"high"` → the
-  property's p90, `"low"` → p10 (`src/rag/property_ranges.json`).
-- Output `targets`/`mask` plug directly into the C-VAE's conditioning vector.
+(Tg, FFV, Tc, Density, Rg). Two modes:
+
+**(a) Paper-grounded RAG** (`rag.py` → `retriever.py` + `llm.py`) — true
+Retrieval-Augmented Generation:
+- **Retrieve** the most relevant real polymer-science papers for the request from
+  a bundled corpus (`papers.jsonl`), using sentence-transformer embeddings
+  (semantic), with a TF-IDF fallback.
+- **Generate** with **Claude** (official Anthropic SDK, `claude-opus-5-5`): the
+  model reads the retrieved abstracts and returns the constraint block **plus a
+  short explanation that cites the papers** (e.g. *"rigid aromatic backbones raise
+  Tg [0][2]"*). Needs `ANTHROPIC_API_KEY`.
+- `build_corpus.py` expands the corpus from OpenAlex (free, no key).
+
+**(b) Local parser** (`parser.py`) — offline fallback and the **anti-hallucination
+gate**, no API key:
+- Keyword + comparator rules for explicit asks (`"Tg above 200"` → `Tg > 200`).
+- Char-ngram TF-IDF retrieval over an exemplar corpus for paraphrases
+  (`"rubbery flexible"` → low Tg), with separate similarity thresholds for
+  accepting a property vs. borrowing a direction.
+
+Both ground qualitative words in the data's quantiles (`"high"` → p90, `"low"` →
+p10, `src/rag/property_ranges.json`) and emit `targets`/`mask` that plug straight
+into the C-VAE. If the RAG LLM step fails, the orchestrator falls back to (b).
 
 ### Tier 2 — Conditional VAE (`src/cvae/`)
 A bidirectional-GRU encoder / GRU decoder sequence VAE over SELFIES, conditioned
@@ -109,7 +123,7 @@ next one consumes, so there is always something to test against.
 | 1. Oracle (Tier 3) | Open Polymer Challenge labels → Morgan + RDKit descriptors → gradient-boosted regressors, **scaffold-split** | `src/oracle/` | ✅ trained |
 | 1b. Pseudo-labelling | Oracle labels PI1M → `pi1m_pseudolabelled.csv` + `cvae_train_slim.csv` (the C-VAE's structure+property set); `analyze_pseudolabels.py` audits in-domain coverage | `src/oracle/pseudolabel.py` | ✅ |
 | 2. Conditional VAE (Tier 2) | bi-GRU encoder / GRU decoder, conditioned on a masked property vector; trained on the pseudo-labelled set | `src/cvae/` | ✅ full 669k / 12-epoch model |
-| 1'. RAG parser (Tier 1) | char-ngram TF-IDF retrieval + keyword/comparator rules → strict constraint block, grounded in the data's quantiles | `src/rag/` | ✅ |
+| 1'. RAG parser (Tier 1) | **paper-grounded RAG** (retrieve real polymer papers → Claude → constraints + cited rationale) with a local TF-IDF+rules parser as the offline, anti-hallucination fallback | `src/rag/` | ✅ |
 | —. Closed loop | text → parse → C-VAE → Oracle → constraint-satisfaction check | `src/pipeline.py` | ✅ |
 | —. Rejection sampling | sample until N candidates meet every constraint | `src/sample_until.py` | ✅ |
 | —. Benchmark | conditional-vs-unconditional yield over a query suite | `src/benchmark.py` | ✅ |
@@ -183,8 +197,14 @@ python src/oracle/train_baseline.py
 python src/oracle/pseudolabel.py
 python analyze_pseudolabels.py           # optional: in-domain coverage report
 
-# Tier 1 — natural language -> constraint block (no torch needed)
+# Tier 1 (local, offline) — natural language -> constraint block (no torch/key)
 python src/rag/parser.py "high Tg, low density"
+
+# Tier 1 (paper-grounded RAG) — retrieve papers + Claude -> constraints + citations
+pip install -r requirements-rag.txt
+cp .env.example .env            # then put your ANTHROPIC_API_KEY in .env
+python build_corpus.py          # optional: grow the paper corpus from OpenAlex
+python src/rag/rag.py "a heat-resistant but lightweight polymer"
 
 # Tier 2 — train the conditional VAE (needs cvae_train_slim.csv + a GPU is ~20 min)
 python src/cvae/train.py                 # full data, 12 epochs
@@ -216,7 +236,8 @@ app.py                      Streamlit demo UI (gated on the parser)
 src/data/                   download, preprocess (SMILES→SELFIES), vocab, chem, properties
 src/oracle/                 features (Morgan + descriptors, scaffold split), train_baseline, pseudolabel
 src/cvae/                   train (conditional VAE), generate (guided sampling)
-src/rag/                    knowledge (lexicon + exemplars), parser, property_ranges.json
+src/rag/                    parser + knowledge (local gate); retriever + llm + rag (paper-grounded RAG); papers.jsonl, property_ranges.json
+build_corpus.py             grow the RAG paper corpus from OpenAlex
 src/pipeline.py             text → generate → Oracle check (one query)
 src/sample_until.py         rejection sampling to a target count
 src/benchmark.py            conditional-vs-unconditional yield suite

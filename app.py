@@ -65,6 +65,10 @@ with st.sidebar:
     guidance = st.slider("Guidance (conditioning strength)", 0.0, 6.0, 3.0, 0.5)
     k = st.slider("Target number of candidates", 3, 40, 12)
     budget = st.select_slider("Sampling budget", [1024, 2048, 4096, 8192], value=4096)
+    use_rag = st.checkbox(
+        "Paper-grounded RAG (Claude)", value=False,
+        help="Retrieve polymer papers and let Claude produce the constraints with "
+             "citations. Needs ANTHROPIC_API_KEY in your .env. Off = local parser.")
     st.markdown("---")
     st.markdown("**Example requests**")
     examples = ["high Tg, low density", "heat resistant but lightweight",
@@ -80,7 +84,15 @@ query = st.text_input("Describe the polymer you want:",
 go = st.button("Generate", type="primary")
 
 if go and query.strip():
-    parsed = parser.parse(query)
+    if use_rag:
+        from src.rag import rag
+        with st.spinner("Retrieving papers and asking Claude…"):
+            parsed = rag.parse(query)
+        if parsed.get("source") == "local-fallback":
+            st.warning("RAG unavailable (" + parsed.get("error", "no API key") +
+                       ") — fell back to the local parser.")
+    else:
+        parsed = parser.parse(query)
 
     # ---- HARD GATE: refuse to generate when nothing real was understood ----
     if not parsed["active"]:
@@ -98,19 +110,31 @@ if go and query.strip():
     # ---- show exactly what was understood (transparency) ----
     st.subheader("Understood as")
     rows = [{"property": p, "constraint": f"{c['op']} {c['value']} {c['unit']}".strip(),
-             "from": c["qualifier"], "your words": c["clause"]}
+             "from": c.get("qualifier", ""),
+             "basis": c.get("clause", c.get("reason", ""))}
             for p, c in parsed["constraints"].items()]
     st.table(pd.DataFrame(rows))
-    if parsed["unparsed"]:
+    if parsed.get("unparsed"):
         st.caption("Ignored parts of your request: "
                    + ", ".join(f"“{u}”" for u in parsed["unparsed"]))
     for w in extrapolation_warnings(parsed, ranges):
         st.warning(w)
 
+    # ---- RAG: literature-grounded rationale + cited papers ----
+    if parsed.get("source") == "rag":
+        if parsed.get("explanation"):
+            st.markdown(f"**Why (from the literature):** {parsed['explanation']}")
+        if parsed.get("papers"):
+            with st.expander(f"Retrieved papers ({len(parsed['papers'])})"):
+                for i, p in enumerate(parsed["papers"]):
+                    st.markdown(f"[{i}] [{p['title']}]({p['url']}) — "
+                                f"{p['authors']} {p['year']}, *{p['journal']}*")
+
     # ---- generate with rejection sampling ----
     bar = st.progress(0.0, text="Generating and scoring candidates…")
     res = sample_until.collect(query, k=k, guidance=guidance, max_samples=budget,
-                               bundle=bundle, progress=lambda f: bar.progress(f))
+                               bundle=bundle, parsed=parsed,
+                               progress=lambda f: bar.progress(f))
     bar.empty()
 
     c1, c2, c3, c4 = st.columns(4)

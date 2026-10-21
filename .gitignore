@@ -19,3 +19,7 @@ env/
 .DS_Store
 .idea/
 .vscode/
+
+# secrets & RAG cache
+.env
+src/rag/.paper_embeddings.npy

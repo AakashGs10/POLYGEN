@@ -33,14 +33,16 @@ MAX_SAMPLES = 8000
 
 
 def collect(query, k=20, guidance=GUIDANCE, batch=BATCH, max_samples=MAX_SAMPLES,
-            bundle=None, progress=None):
+            bundle=None, progress=None, parsed=None):
     """Rejection-sample toward the query; return a result dict (no printing).
 
     `bundle` = (model, vocab, mean, std, oracles, train_smiles, dev) lets a
-    long-lived app reuse a loaded model. `progress(frac)` is an optional callback.
+    long-lived app reuse a loaded model. `parsed` lets a caller pass an
+    already-built constraint block (e.g. from the RAG parser) instead of
+    re-parsing the text. `progress(frac)` is an optional callback.
     """
-    parser = ConstraintParser()
-    parsed = parser.parse(query)
+    if parsed is None:
+        parsed = ConstraintParser().parse(query)
     result = {"query": query, "parsed": parsed, "accepted": [],
               "sampled": 0, "valid": 0, "yield": 0.0, "blocked": not parsed["active"]}
     if result["blocked"]:
