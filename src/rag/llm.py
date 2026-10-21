@@ -22,7 +22,7 @@ from src.rag import retriever
 
 _UNITS = {"Tg": "C", "FFV": "unitless", "Tc": "unitless",
           "Density": "g/cm3", "Rg": "Angstrom"}
-_DEFAULT_MODEL = {"google": "gemini-2.5-flash", "anthropic": "claude-opus-5-5"}
+_DEFAULT_MODEL = {"google": "gemini-3.8-flash", "anthropic": "claude-opus-5-5"}
 
 
 def _load_env():
