@@ -79,7 +79,8 @@ Retrieval-Augmented Generation:
   Claude**, auto-selected from whichever API key is set. The model reads the
   retrieved abstracts and returns the constraint block **plus a short explanation
   that cites the papers** (e.g. *"rigid aromatic backbones raise Tg [0][2]"*).
-  Set `GEMINI_API_KEY` (free) or `ANTHROPIC_API_KEY` in `.env`.
+  Set `GEMINI_API_KEY` (free) or `ANTHROPIC_API_KEY` in `.env`. Defaults are
+  `gemini-3.8-flash` / `claude-opus-5-5`; override with `POLYGEN_LLM_MODEL`.
 - `build_corpus.py` expands the corpus from OpenAlex (free, no key).
 
 **(b) Local parser** (`parser.py`) — offline fallback and the **anti-hallucination
@@ -96,8 +97,9 @@ into the C-VAE. If the RAG LLM step fails, the orchestrator falls back to (b).
 ### Tier 2 — Conditional VAE (`src/cvae/`)
 A bidirectional-GRU encoder / GRU decoder sequence VAE over SELFIES, conditioned
 on a masked property vector so any subset of properties can be specified.
-- **Classifier-free guidance** at sampling amplifies the conditioning signal
-  (trained with property dropout so the unconditional path exists).
+- **Classifier-free guidance** (scale 3.0) at sampling amplifies the conditioning
+  signal; training drops each property with probability `PROP_DROPOUT = 0.3`
+  (at least one always kept) so the unconditional path exists.
 - Decodes to SELFIES → SMILES, keeping only **two-endpoint** repeat units.
 
 ### Tier 3 — Oracle (`src/oracle/`)
