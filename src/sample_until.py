@@ -79,7 +79,13 @@ def collect(query, k=20, guidance=GUIDANCE, batch=BATCH, max_samples=MAX_SAMPLES
         if not smiles:
             continue
 
-        X, _ = features.featurize(smiles)
+        # featurize drops molecules RDKit cannot parse and returns a mask over
+        # its inputs; keep smiles aligned with X or row i would report a
+        # different molecule than the one scored.
+        X, keep = features.featurize(smiles)
+        smiles = [s for s, k in zip(smiles, keep) if k]
+        if not smiles:
+            continue
         ok = np.ones(X.shape[0], dtype=bool)
         preds = {}
         for p in parsed["active"]:

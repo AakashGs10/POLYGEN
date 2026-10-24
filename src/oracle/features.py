@@ -77,12 +77,49 @@ def scaffold_of(smiles):
         return ""
 
 
+def scaffold_kfold(smiles_list, k=5, seed=config.SEED):
+    """Group-respecting k-fold: yields (train_idx, test_idx) per fold.
+
+    Every molecule sharing a Bemis-Murcko scaffold lands in the same fold, so
+    no scaffold leaks across the split, while each molecule is held out exactly
+    once. This is what supports confidence intervals on the Oracle metrics: a
+    single split -- reseeded or not -- gives one point estimate per property.
+    Groups are shuffled, then assigned largest-first to whichever fold is
+    currently smallest, which keeps the folds close to equal size.
+    """
+    groups = defaultdict(list)
+    for i, smiles in enumerate(smiles_list):
+        groups[scaffold_of(smiles)].append(i)
+
+    buckets = list(groups.values())
+    np.random.default_rng(seed).shuffle(buckets)
+    buckets.sort(key=len, reverse=True)
+
+    folds = [[] for _ in range(k)]
+    for bucket in buckets:
+        folds[int(np.argmin([len(f) for f in folds]))].extend(bucket)
+
+    n = len(smiles_list)
+    for i in range(k):
+        test_idx = np.array(sorted(folds[i]), dtype=int)
+        train_idx = np.array(sorted(set(range(n)) - set(folds[i])), dtype=int)
+        if len(test_idx) and len(train_idx):
+            yield train_idx, test_idx
+
+
 def scaffold_split(smiles_list, test_frac=0.2, seed=config.SEED):
     groups = defaultdict(list)
     for i, smiles in enumerate(smiles_list):
         groups[scaffold_of(smiles)].append(i)
 
-    buckets = sorted(groups.values(), key=len, reverse=True)
+    # Shuffle before the size sort so equal-sized scaffold groups are ordered
+    # randomly. Python's sort is stable, so the size ordering is preserved and
+    # only ties are reseeded -- enough to vary the split across seeds (most
+    # scaffolds are singletons) and so to put confidence intervals on the
+    # Oracle metrics, which a fully deterministic split cannot support.
+    buckets = list(groups.values())
+    np.random.default_rng(seed).shuffle(buckets)
+    buckets.sort(key=len, reverse=True)
     n_test = int(len(smiles_list) * test_frac)
     test_idx, train_idx = [], []
     for bucket in buckets:

@@ -52,7 +52,12 @@ def _score(smiles, constraints, oracles):
     """Return (per-prop satisfaction dict, all-constraint mask) for a smiles list."""
     if not smiles:
         return {}, np.zeros(0, dtype=bool)
-    X, _ = features.featurize(smiles)
+    # keep the caller's smiles aligned with the featurised rows (see
+    # sample_until.collect) -- unparseable molecules are dropped from X.
+    X, keep = features.featurize(smiles)
+    smiles = [s for s, k in zip(smiles, keep) if k]
+    if not smiles:
+        return {}, np.zeros(0, dtype=bool)
     per, overall = {}, np.ones(X.shape[0], dtype=bool)
     for p, c in constraints.items():
         if p not in oracles:

@@ -24,6 +24,8 @@ LR = 1e-3
 BETA_MAX = 0.2           # was 0.05 — real KL pressure so z stays information-poor
 BETA_WARMUP_EPOCHS = 4
 PROP_DROPOUT = 0.3       # was 0.5 — more conditional exposure, still trains the uncond path for guidance
+NULL_COND_PROB = 0.10    # fraction of batches trained with an all-zero mask: the
+                         # reference classifier-free guidance extrapolates from
 FREE_BITS = 0.015        # was 0.08 — 0.015*64≈1 nat free, down from ~10 nats
 TOKEN_DROPOUT = 0.4      # was 0.25 — decoder cannot lean on teacher-forced tokens alone
 CKPT = config.ROOT / "models" / "cvae"
@@ -127,12 +129,19 @@ def run(limit=None, epochs=EPOCHS):
     print(f"training rows: {len(df):,}  vocab: {vocab['vocab_size']}  max_len: {vocab['max_len']}")
 
     cols = [f"{p}_pred" for p in config.PROPERTIES]
-    arr = df[cols].values.astype(np.float32)
+
+    # Split BEFORE computing normalisation statistics, and split at random
+    # rather than taking the leading block. Statistics fitted over the whole
+    # file leak validation moments into training, and the file inherits the
+    # source dataset's ordering, so a contiguous head is not a random sample.
+    perm = np.random.default_rng(config.SEED).permutation(len(df))
+    n_val = max(1, int(len(df) * 0.02))
+    val_df = df.iloc[perm[:n_val]].reset_index(drop=True)
+    train_df = df.iloc[perm[n_val:]].reset_index(drop=True)
+
+    arr = train_df[cols].values.astype(np.float32)   # train split only
     stats = {"mean": arr.mean(0), "std": arr.std(0) + 1e-8}
     np.savez(CKPT / "prop_stats.npz", **stats)
-
-    n_val = max(1, int(len(df) * 0.02))
-    val_df, train_df = df.iloc[:n_val], df.iloc[n_val:]
     pad = vocab["stoi"][config.PAD_TOKEN]
 
     tl = DataLoader(PolymerData(train_df, vocab, stats), batch_size=BATCH,
@@ -153,6 +162,12 @@ def run(limit=None, epochs=EPOCHS):
             x, p = x.to(dev), p.to(dev)
             mask = (torch.rand(p.shape, device=dev) > PROP_DROPOUT).float()
             mask[:, 0] = torch.maximum(mask[:, 0], (mask.sum(1) == 0).float())
+            # Explicit null-conditioning path. Classifier-free guidance uses an
+            # all-zero mask as its unconditional reference; the line above never
+            # produces one, so without this the reference would be untrained and
+            # guidance would extrapolate away from a state the model never saw.
+            null = (torch.rand(mask.size(0), 1, device=dev) < NULL_COND_PROB).float()
+            mask = mask * (1.0 - null)
             logits, mu, lv = model(x, p, mask, TOKEN_DROPOUT)
             loss, rec, kl = loss_fn(logits, x[:, 1:], mu, lv, beta, pad)
             opt.zero_grad()
